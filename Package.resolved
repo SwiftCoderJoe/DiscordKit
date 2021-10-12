@@ -38,6 +38,15 @@
         }
       },
       {
+        "package": "NullCodable",
+        "repositoryURL": "https://github.com/g-mark/NullCodable",
+        "state": {
+          "branch": null,
+          "revision": "dcdda8a5b079827f65e283ab7c29d5caae4caf89",
+          "version": "1.1.0"
+        }
+      },
+      {
         "package": "routing-kit",
         "repositoryURL": "https://github.com/vapor/routing-kit.git",
         "state": {
@@ -132,8 +141,8 @@
         "repositoryURL": "https://github.com/vapor/vapor.git",
         "state": {
           "branch": null,
-          "revision": "8ee22de2845af389b9ed0e24f63983a0b5da6ab9",
-          "version": "4.49.0"
+          "revision": "27119271502bf266be293be5325f0fb72435e8fd",
+          "version": "4.49.2"
         }
       },
       {

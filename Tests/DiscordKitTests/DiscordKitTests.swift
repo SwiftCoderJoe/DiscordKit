@@ -9,6 +9,10 @@ final class DiscordKitTests: XCTestCase {
 
         let discordClient = Client(print: "Bruh momento")
 
+        sleep(120)
+
+        //discordClient.login(with: Token)
+
         XCTAssertEqual(1, 1)
     }
 }
