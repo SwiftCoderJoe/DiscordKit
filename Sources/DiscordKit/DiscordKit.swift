@@ -1,70 +1,100 @@
+import Logging
 import Vapor
-import NullCodable
+import AsyncHTTPClient
 
-public class Client {
+public class Client: Eventable {
 
-    var eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 2)
+    private let token: String
 
-    var connection: WebSocket?
+    private var eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 2)
 
-    var encoder = JSONEncoder()
+    private var connection: WebSocket?
 
-    var decoder = JSONDecoder()
-
-    var heartbeatInterval: Int? {
+    private var heartbeatInterval: Int? {
         didSet {
             createHeartbeat(every: heartbeatInterval!)
         }
     }
 
+    private var heartbeatSequence: Int?
+
+    private var logger = Logger(label: "com.scj.DiscordKit")
+
+    private var httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
+
     var heartbeatDispatch: DispatchSourceTimer?
 
-    public init(print text: String) {
+    /// Event listener registry
+    var listeners = [SubscribableEvent: [(Any) -> ()]]()
 
-        let _ = WebSocket.connect(to: "wss://gateway.discord.gg/?v=9&encoding=json", on: eventLoopGroup) { ws in // wss://demo.piesocket.com/v3/channel_1?api_key=oCdCMcMPQpbvNjUIzqtvF1d2X2okWpDQj4AwARJuAgtjhzKxVEjQU6IdCjwm&notify_self
+    public init(token: String) {
+
+        self.token = token
+
+    }
+
+    func login() {
+
+        let sema = DispatchSemaphore(value: 0) 
+
+        // First, connect to the WebSocket. Set it so any payload recieved gets sent to handle(payload: WSPayload)
+        let promise = WebSocket.connect(to: "wss://gateway.discord.gg/?v=9&encoding=json", on: eventLoopGroup) { ws in 
             // Connected WebSocket.
             
             print("Connected.")
-            print("Sending WS connection to the client...")
 
             self.connection = ws
 
             ws.onText({ ws, text in 
 
-                print(text)
-
-                let decoder = JSONDecoder()
-
-                guard let json = try? decoder.decode(WSPayload.self, from: text.data(using: .utf8)!) else {
-                    print("epic fail")
-                    return
-                }
-
-                // self.heartbeatInterval = json.d.heartbeat_interval
-                self.handle(payload: json)
-                    
+                self.handle(payload: text)
                 
             })
-
-            
             
         }
 
+        // When we've connected, log in.
+        promise.whenComplete({ _ in
+
+            let properties = WSPayload.IdentifyData(token: self.token, intents: 4096)
+            
+            self.sendPayload(.identify(properties))
+
+            sema.signal()
+
+        })
+
+        sema.wait()
+
+        RunLoop.main.run()
     }
 
-    func login(with token: Token) {
-        
-    }
+    private func handle(payload unidentifiedPayload: String) {
 
-    private func handle(payload: WSPayload) {
+        let decoder = JSONDecoder()
+
+        decoder.userInfo[.contextManager] = ContextManager(client: self)
+
+        guard let payload = try? decoder.decode(WSPayload.self, from: unidentifiedPayload.data(using: .utf8)!) else {
+            logger.error("Could not decode WebSocket payload.", metadata: ["Payload" : "\(unidentifiedPayload)"])
+            return
+        }
 
         switch payload {
             case .heartbeat:
-                print("I should probably do something...")
+                logger.warning("Recieved a heartbeat request, which is not yet implemented.")
             case .heartbeatAck:
-                print("Heartbeat was recieved by server.")
+                logger.info("Heartbeat was recieved by server.")
             case .gatewayHello(let data):
                 heartbeatInterval = data.heartbeat_interval
+            case .event(let event, let sequence):
+                heartbeatSequence = sequence
+                handle(event: event)
+                
+            default:
+                // No other payload should ever be recieved
+                print("Recieved an unknown payload, dumping:")
+                dump(payload)
         }
 
     }
@@ -76,26 +106,45 @@ public class Client {
         // TODO: check if that leeway is small/large enough
         heartbeatDispatch?.schedule(deadline: .now() + .milliseconds(interval), repeating: .milliseconds(interval), leeway: .milliseconds(10))
         heartbeatDispatch?.setEventHandler { [weak self] in
-            print("sending heartbeat...")
+            self?.logger.info("Sending heartbeat...")
 
-            self?.sendPayload()
+            self?.sendPayload(.heartbeat(self?.heartbeatSequence))
             
         }
         heartbeatDispatch?.resume()
         
     }
 
-    private func sendPayload() {
-        let data = String(data: try! encoder.encode( op1() ), encoding: .utf8)
+    private func sendPayload(_ payload: WSPayload) {
+        let encoder = JSONEncoder()
+
+        let data = String(data: try! encoder.encode( payload ), encoding: .utf8)
+
+        // print(data!)
+
         let promise = self.eventLoopGroup.next().makePromise(of: Void.self)
         self.connection!.send(data!, promise: promise)
         promise.futureResult.whenComplete { result in
             switch result {
             case .success():
-                print("opcode1 sent.")
+                //print("Send success.")
+                break
             case .failure(let error):
                 print(error)
             }
+        }
+    }
+
+    /** please move all WS code to Gateway */
+    private func handle(event: Event) {
+        switch event {
+        case .ready(_):
+            logger.info("Logged in!")
+        case .message(_):
+            emit(event)
+        case .unknown(let decoder):
+            dump(decoder)
+            logger.warning("Recieved an unknown event.")
         }
     }
 
@@ -104,95 +153,39 @@ public class Client {
         heartbeatDispatch = nil
     }
 
+    func send(text content: String, to channel: TextChannel) {
+        var request = try! HTTPClient.Request(url: "https://discord.com/api/channels/\(channel.id.string)/messages", method: .POST)
+
+        request.headers.add(name: "User-Agent", value: "DiscordBot (https://github.com/SwiftCoderJoe/DiscordKit/, 1.0.0")
+        request.headers.add(name: "Authorization", value: "Bot \(token)")
+        request.headers.contentType = .json
+
+        request.body = .string("""
+        {
+            "content": "\(content)",
+            "tts": false
+        }
+        """)
+
+        httpClient.execute(request: request).whenComplete { result in
+            switch result {
+            case .failure(let error):
+                self.logger.critical("\(error)")
+            case .success(let response):
+                if response.status == .ok {
+                    self.logger.info("Sent message successfully.")
+                } else {
+                    self.logger.critical("Something went wrong!")
+                    dump(response)
+                    print(response.body)
+                }
+            }
+        }
+
+    }
+
     deinit {
         self.stopHeartbeat()
     }
 
-}
-
-struct Token {
-    let token: String
-
-    public init(_ token: String) {
-        self.token = token
-    }
-}
-
-struct op1: Codable {
-    var op: Int = 1
-    @NullCodable var d: Int? = nil
-}
-
-enum WSPayload: Codable {
-    case heartbeat(Int?)                      // opcode 1
-    case heartbeatAck                        // opcode 11
-    case gatewayHello(GatewayHelloData)      // opcode 10
-
-    struct GatewayHelloData: Codable {
-        let heartbeat_interval: Int
-    }
-
-}
-
-extension WSPayload {
-    enum Types: Int, Codable {
-        case heartbeat = 1
-        case heartbeatAck = 11
-        case gatewayHello = 10
-    }
-
-    var type: Types {
-        switch self {
-        case .heartbeat:
-            return .heartbeat
-        case .heartbeatAck:
-            return .heartbeatAck
-        case .gatewayHello:
-            return .gatewayHello
-        }
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case op
-        case d
-    }
-
-    func encode(to encoder: Encoder) throws {
-        // type
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.type, forKey: .op)
-
-        // Based on the type, encode data differently
-        switch self {
-            case .heartbeat(let data):
-                try container.encode(data, forKey: .d)
-            case .heartbeatAck:
-                break
-            case .gatewayHello(let data):
-                try container.encode(data, forKey: .d)
-        }
-
-    }
-
-    init(from decoder: Decoder) throws {
-
-        // Extract type  
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let type = try container.decode(Types.self, forKey: .op)
-
-        // Based on the type, extract different data
-        switch type {
-            case .heartbeat:
-                // For a heartbeat, extract a raw Integer
-                let specificData = try container.decode(Int.self, forKey: .d)
-                self = .heartbeat(specificData)
-            case .heartbeatAck:
-                // For a heartbeat ack, extract nothing
-                self = .heartbeatAck
-            case .gatewayHello:
-                // For a gateway hello, extract heartbeat_interval
-                let specificData = try container.decode(GatewayHelloData.self, forKey: .d)
-                self = .gatewayHello(specificData)
-        }
-    }
 }

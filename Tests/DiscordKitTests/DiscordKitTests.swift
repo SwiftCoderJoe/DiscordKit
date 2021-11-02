@@ -3,16 +3,27 @@ import XCTest
 
 final class DiscordKitTests: XCTestCase {
     func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct
-        // results.
+        
+        var client = Client(token: "NTQyNDYxOTI3NDk1MDQxMDM0.XFoFCQ.cDSVnYrBCt3Rb36CaEvQ_TL0HHY")
 
-        let discordClient = Client(print: "Bruh momento")
+        client.on(.message) { data in
+            var message = data as! Message
 
-        sleep(120)
+            if message.author.bot ?? false {
+                return
+            }
 
-        //discordClient.login(with: Token)
+            if message.content.starts(with: "echo ") {
+                message.channel.send( String(message.content.dropFirst(5)) )
+            }
 
-        XCTAssertEqual(1, 1)
+            if message.content == "sing" {
+                message.channel.send("I'm singing!")
+            }
+
+        }
+
+        client.login()
+
     }
 }

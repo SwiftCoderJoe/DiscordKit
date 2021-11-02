@@ -16,7 +16,7 @@ let package = Package(
         // .package(url: /* package url */, from: "1.0.0"),
 
         .package(url: "https://github.com/vapor/vapor.git", from: "4.0.0"),
-        .package(url: "https://github.com/g-mark/NullCodable", from: "1.0.0")
+        .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.0.0")
 
     ],
     targets: [
@@ -24,7 +24,7 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
             name: "DiscordKit",
-            dependencies: [.product(name: "Vapor", package: "vapor"), .product(name: "NullCodable", package: "NullCodable")]),
+            dependencies: [.product(name: "Vapor", package: "vapor"), .product(name: "AsyncHTTPClient", package: "async-http-client")]),
         .testTarget(
             name: "DiscordKitTests",
             dependencies: ["DiscordKit"]),
