@@ -148,7 +148,7 @@ extension WSPayload {
 }
 
 extension CodingUserInfoKey {
-    static let contextManager = CodingUserInfoKey(rawValue: "EventName")!
+    static let contextManager = CodingUserInfoKey(rawValue: "ContextManager")!
 }
 
 class ContextManager {

@@ -2,9 +2,9 @@ import XCTest
 @testable import DiscordKit
 
 final class DiscordKitTests: XCTestCase {
-    func testExample() throws {
+    func testExample() async throws {
         
-        var client = Client(token: "NTQyNDYxOTI3NDk1MDQxMDM0.XFoFCQ.cDSVnYrBCt3Rb36CaEvQ_TL0HHY")
+        var client = Client(token: "NTQyNDYxOTI3NDk1MDQxMDM0.XFoFCQ.cDSVnYrBCt3Rb36CaEvQ_TL0HHY", logLevel: .debug)
 
         client.on(.message) { data in
             var message = data as! Message
@@ -23,7 +23,7 @@ final class DiscordKitTests: XCTestCase {
 
         }
 
-        client.login()
+        try await client.login()
 
     }
 }
