@@ -1,9 +1,9 @@
 enum WSPayload: Codable {
-    case heartbeat(Int?)                      // opcode 1
+    case heartbeat(Int?)                     // opcode 1
     case heartbeatAck                        // opcode 11
     case gatewayHello(GatewayHelloData)      // opcode 10
-    case identify(IdentifyData)
-    case event(Event, Int)
+    case identify(IdentifyData)              // opcode 2
+    case event(Event, Int)                   // opcode 0
 
     struct GatewayHelloData: Codable {
         let heartbeat_interval: Int
