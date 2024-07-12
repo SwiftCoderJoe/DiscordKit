@@ -37,8 +37,8 @@ public class Client {
             logger.info("Logged in!")
         case .message(let message):
             emitOnMessage(with: message)
-        case .unknown(_):
-            logger.warning("Recieved an unknown event.")
+        case .unknown(let name):
+            logger.warning("Recieved an unknown event.", metadata: ["Event name": "\(name)"])
         }
     }
 
