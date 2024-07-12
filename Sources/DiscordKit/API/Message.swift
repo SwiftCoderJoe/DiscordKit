@@ -16,7 +16,6 @@ extension Message: Codable {
         case id
         case author
         case channelId = "channel_id"
-        
     }
 
     public func encode(to encoder: Encoder) throws {

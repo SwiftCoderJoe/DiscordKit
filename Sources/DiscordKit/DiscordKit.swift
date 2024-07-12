@@ -8,52 +8,25 @@ public class Client {
 
     private var logger = Logger(label: "com.scj.DiscordKit")
 
-    private let eventLoopGroup = MultiThreadedEventLoopGroup.singleton
-    private var httpClient: HTTPClient!
+    private var api: RESTClient
 
     // MARK: Instantiation
 
     public init(token: String, logLevel: Logger.Level = .info) {
         self.token = token
         logger.logLevel = logLevel
-
-        httpClient = HTTPClient(eventLoopGroupProvider: .shared(eventLoopGroup))
+        api = RESTClient(token: token, logger: logger)
     }
 
     func login() async throws {
-        try await Gateway(token: token, intents: 4096, eventLoop: eventLoopGroup, logger: logger, client: self)
+        try await Gateway(token: token, intents: 37379, logger: logger, client: self)
         logger.critical("SHOULD NEVER PRINT! If this message is printed, something in the Swift language has gone seriously wrong.")
     }
 
     // MARK: Client functions
 
-    func send(text content: String, to channel: TextChannel) {
-        var request = try! HTTPClient.Request(url: "https://discord.com/api/channels/\(channel.id.string)/messages", method: .POST)
-
-        request.headers.add(name: "User-Agent", value: "DiscordBot (https://github.com/SwiftCoderJoe/DiscordKit/, 1.0.0")
-        request.headers.add(name: "Authorization", value: "Bot \(token)")
-        request.headers.contentType = .json
-
-        request.body = .string("""
-        {
-            "content": "\(content)",
-            "tts": false
-        }
-        """)
-
-        httpClient.execute(request: request).whenComplete { result in
-            switch result {
-            case .failure(let error):
-                self.logger.critical("\(error)")
-            case .success(let response):
-                if response.status == .ok {
-                    self.logger.info("Sent message successfully.")
-                } else {
-                    self.logger.critical("Something went wrong!")
-                    dump(response)
-                }
-            }
-        }
+    public func send(text content: String, to channel: TextChannel) {
+        api.sendMessage(withText: content, to: channel)
     }
     
     // MARK: Events
@@ -64,8 +37,7 @@ public class Client {
             logger.info("Logged in!")
         case .message(let message):
             emitOnMessage(with: message)
-        case .unknown(let decoder):
-            dump(decoder)
+        case .unknown(_):
             logger.warning("Recieved an unknown event.")
         }
     }
@@ -82,11 +54,5 @@ public class Client {
 
     // MARK: Cleanup & Shutdown
 
-    deinit {
-        do {
-            try httpClient.syncShutdown()
-        } catch {
-            logger.error("Could not shut down the HTTP client.")
-        }
-    }
+    deinit { }
 }

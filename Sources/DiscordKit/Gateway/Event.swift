@@ -7,7 +7,7 @@ enum Event {
         let user: DiscordUser
 
         enum CodingKeys: String, CodingKey {
-            case user = "user"
+            case user
         }
     }
 }
@@ -20,9 +20,7 @@ extension Event: Codable {
     }
 
     func encode(to encoder: Encoder) throws {
-        print("ENCODING EVENTS NOT IMPLEMENTED")
-        var container = encoder.singleValueContainer()
-        try container.encode(false)
+        fatalError("Encoding events not implemented. Should probably be decodable")
     }
 
     init(from decoder: Decoder) throws {

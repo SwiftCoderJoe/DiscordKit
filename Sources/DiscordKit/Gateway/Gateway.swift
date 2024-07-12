@@ -4,7 +4,6 @@ class Gateway {
     let client: Client
     let logger: Logger
     var heartbeatDispatch: Task<(), any Error>?
-    var eventLoop: EventLoopGroup
     var connection: WebSocket?
 
     private var heartbeatSequence: Int?
@@ -15,16 +14,15 @@ class Gateway {
     }
 
     @discardableResult
-    init(token: String, intents: Int, eventLoop: EventLoopGroup, logger: Logger, client: Client) async throws {
+    init(token: String, intents: Int, logger: Logger, client: Client) async throws {
         self.client = client
-        self.eventLoop = eventLoop
         self.logger = logger
 
         connection = try await WebSocket.connect(to: "wss://gateway.discord.gg/?v=10&encoding=json")
         logger.debug("WS Connected.")
 
         // When we've connected, log in.
-        let properties = WSPayload.IdentifyData(token: token, intents: 4096)
+        let properties = WSPayload.IdentifyData(token: token, intents: intents)
         
         self.sendPayload(.identify(properties))
 
@@ -35,6 +33,7 @@ class Gateway {
     }
 
     private func handle(payload unidentifiedPayload: String) {
+        logger.debug("Handling payload...")
 
         let decoder = JSONDecoder()
 
@@ -58,8 +57,7 @@ class Gateway {
                 
             default:
                 // No other payload should ever be recieved
-                print("Recieved an unknown payload, dumping:")
-                dump(payload)
+                logger.warning("Recieved an unknown payload.", metadata: ["Payload" : "\(payload)"])
         }
 
     }

@@ -1,4 +1,4 @@
-struct Snowflake: Equatable {
+public struct Snowflake: Equatable {
     init(_ int: Int) {
         self.int = int
         self.string = String(int)
@@ -20,11 +20,11 @@ struct Snowflake: Equatable {
 }
 
 extension Snowflake: Codable {
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         fatalError("Errored while trying to encode a snowflake. this isnt implemented yet lmao")
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         string = try container.decode(String.self)
         self = try Snowflake(string)

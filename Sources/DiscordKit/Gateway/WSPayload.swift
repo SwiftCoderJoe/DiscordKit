@@ -56,10 +56,6 @@ extension WSPayload {
         case event = 0
     }
 
-    enum Events: String, Codable {
-        case ready = "READY"
-    }
-
     var opcode: Opcodes {
         switch self {
         case .heartbeat:
@@ -131,9 +127,9 @@ extension WSPayload {
 
             let eventName = try container.decode(String.self, forKey: .eventName)
             
+            
             // Pass on the event name to Event
             if let eventNameContainer = decoder.userInfo[.contextManager] as? ContextManager {
-                print("Event Name: \(eventName)")
                 eventNameContainer.eventName = Event.Events(rawValue: eventName)
             } else {
                 fatalError("Could not get eventNameContainer.")
