@@ -2,20 +2,16 @@ import Logging
 import Vapor
 import AsyncHTTPClient
 
-public class Client: Eventable {
+public class Client {
 
     private let token: String
 
-    private let eventLoopGroup = MultiThreadedEventLoopGroup.singleton
-
     private var logger = Logger(label: "com.scj.DiscordKit")
 
+    private let eventLoopGroup = MultiThreadedEventLoopGroup.singleton
     private var httpClient: HTTPClient!
 
-    var heartbeatDispatch: DispatchSourceTimer?
-
-    /// Event listener registry
-    var listeners = [SubscribableEvent: [(Any) -> ()]]()
+    // MARK: Instantiation
 
     public init(token: String, logLevel: Logger.Level = .info) {
         self.token = token
@@ -29,17 +25,7 @@ public class Client: Eventable {
         logger.critical("SHOULD NEVER PRINT!!!!!")
     }
 
-    func handle(event: Event) {
-        switch event {
-        case .ready(_):
-            logger.info("Logged in!")
-        case .message(_):
-            emit(event)
-        case .unknown(let decoder):
-            dump(decoder)
-            logger.warning("Recieved an unknown event.")
-        }
-    }
+    // MARK: Client functions
 
     func send(text content: String, to channel: TextChannel) {
         var request = try! HTTPClient.Request(url: "https://discord.com/api/channels/\(channel.id.string)/messages", method: .POST)
@@ -65,11 +51,36 @@ public class Client: Eventable {
                 } else {
                     self.logger.critical("Something went wrong!")
                     dump(response)
-                    print(response.body)
                 }
             }
         }
     }
+    
+    // MARK: Events
+
+    func handle(event: Event) {
+        switch event {
+        case .ready(_):
+            logger.info("Logged in!")
+        case .message(let message):
+            emitOnMessage(with: message)
+        case .unknown(let decoder):
+            dump(decoder)
+            logger.warning("Recieved an unknown event.")
+        }
+    }
+
+    var messageEventCallbacks: [(Message) -> ()] = []
+    public func onMessage(execute callback: @escaping (Message) -> ()) {
+        messageEventCallbacks.append(callback)
+    }
+    private func emitOnMessage(with message: Message) {
+        for callback in messageEventCallbacks {
+            callback(message)
+        }
+    }
+
+    // MARK: Cleanup & Shutdown
 
     deinit {
         do {

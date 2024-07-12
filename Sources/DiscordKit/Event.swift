@@ -12,32 +12,11 @@ enum Event {
     }
 }
 
-enum SubscribableEvent: String, Hashable {
-    case ready = "READY"
-    case message = "MESSAGE_CREATE"
-    case unknown = "unknown"
-}
-
 extension Event: Codable {
     enum Events: String, Codable {
         case ready = "READY"
         case message = "MESSAGE_CREATE"
         case unknown = "unknown"
-    }
-
-    var type: Events {
-        switch (self) {
-        case .ready:
-            return .ready
-        case .message:
-            return .message
-        case .unknown:
-            return .unknown
-        }
-    }
-
-    var subscribable: SubscribableEvent {
-        return SubscribableEvent(rawValue: self.type.rawValue) ?? .unknown
     }
 
     func encode(to encoder: Encoder) throws {

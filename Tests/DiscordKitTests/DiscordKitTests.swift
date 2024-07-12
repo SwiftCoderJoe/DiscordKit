@@ -6,9 +6,7 @@ final class DiscordKitTests: XCTestCase {
         
         var client = Client(token: "NTQyNDYxOTI3NDk1MDQxMDM0.XFoFCQ.cDSVnYrBCt3Rb36CaEvQ_TL0HHY", logLevel: .debug)
 
-        client.on(.message) { data in
-            var message = data as! Message
-
+        client.onMessage { message in
             if message.author.bot ?? false {
                 return
             }
