@@ -123,21 +123,10 @@ extension WSPayload {
             let specificData = try container.decode(IdentifyData.self, forKey: .data)
             self = .identify(specificData)
         case .event:
-            // For an event, pass on the decoding to Event
-
-            let eventName = try container.decode(String.self, forKey: .eventName)
-            
-            
-            // Pass on the event name to Event
-            if let eventNameContainer = decoder.userInfo[.contextManager] as? ContextManager {
-                eventNameContainer.eventName = Event.Events(rawValue: eventName)
-            } else {
-                fatalError("Could not get eventNameContainer.")
-            }
-
-            let event = try container.decode(Event.self, forKey: .data)
-
+            // For an event, pass on the decoding to Event            
+            let event = try decoder.singleValueContainer().decode(Event.self)
             let sessionIdentifier = try container.decode(Int.self, forKey: .sessionID)
+
             self = .event(event, sessionIdentifier)
         }
     }
@@ -152,8 +141,6 @@ class ContextManager {
     init(client: Client) {
         self.client = client
     }
-
-    var eventName: Event.Events?
 
     var client: Client
 
