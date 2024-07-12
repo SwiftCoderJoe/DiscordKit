@@ -18,16 +18,17 @@ class Gateway {
         self.client = client
         self.logger = logger
 
-        connection = try await WebSocket.connect(to: "wss://gateway.discord.gg/?v=10&encoding=json")
+        let (connection, stream) = await WebSocket.connect(to: "wss://gateway.discord.gg/?v=10&encoding=json", logger: logger)
+        self.connection = connection
+
         logger.debug("WS Connected.")
 
         // When we've connected, log in.
+        logger.info("Logging in...")
         let properties = WSPayload.IdentifyData(token: token, intents: intents)
-        
         self.sendPayload(.identify(properties))
 
-        guard let webSocketStream = connection?.listen() else { throw WebSocketListenError() }
-        for await payload in webSocketStream {
+        for await payload in stream {
             handle(payload: payload)
         }
     }
@@ -50,6 +51,7 @@ class Gateway {
             case .heartbeatAck:
                 logger.info("Heartbeat was recieved by server.")
             case .gatewayHello(let data):
+                logger.info("Recieved a hello!")
                 heartbeatInterval = data.heartbeat_interval
             case .event(let event, let sequence):
                 heartbeatSequence = sequence
@@ -65,6 +67,7 @@ class Gateway {
     private func createHeartbeat(every interval: Int) {
         heartbeatDispatch = Task {
             while (true) {
+                self.logger.info("Settings heartbeat task every \(interval) millis.")
                 try await Task.sleep(for: .milliseconds(interval), tolerance: .milliseconds(10))
                 self.logger.info("Sending heartbeat...")
                 self.sendPayload(.heartbeat(self.heartbeatSequence))
@@ -82,7 +85,7 @@ class Gateway {
 
         let data = String(data: try! encoder.encode( payload ), encoding: .utf8)
 
-        // For Gateway, since we don't use any of its return values, we really don't care what order or when tasks are executed.
+        // For Gateway, since we don't use any of its return values, we really don't care when tasks finish execution.
         // No need to `await` anything.
         Task {
             try await self.connection!.send(data!)
