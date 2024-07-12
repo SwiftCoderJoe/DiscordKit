@@ -22,7 +22,7 @@ public class Client {
 
     func login() async throws {
         try await Gateway(token: token, intents: 4096, eventLoop: eventLoopGroup, logger: logger, client: self)
-        logger.critical("SHOULD NEVER PRINT!!!!!")
+        logger.critical("SHOULD NEVER PRINT! If this message is printed, something in the Swift language has gone seriously wrong.")
     }
 
     // MARK: Client functions

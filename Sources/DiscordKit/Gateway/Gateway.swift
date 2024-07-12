@@ -3,7 +3,7 @@ import Vapor
 class Gateway {
     let client: Client
     let logger: Logger
-    var heartbeatDispatch: DispatchSourceTimer?
+    var heartbeatDispatch: Task<(), any Error>?
     var eventLoop: EventLoopGroup
     var connection: WebSocket?
 
@@ -65,19 +65,13 @@ class Gateway {
     }
 
     private func createHeartbeat(every interval: Int) {
-
-        let queue = DispatchQueue(label: "com.DiscordKit.client.heartbeatTimer")
-        heartbeatDispatch = DispatchSource.makeTimerSource(queue: queue)
-        // TODO: check if that leeway is small/large enough
-        heartbeatDispatch?.schedule(deadline: .now() + .milliseconds(interval), repeating: .milliseconds(interval), leeway: .milliseconds(10))
-        heartbeatDispatch?.setEventHandler { [weak self] in
-            self?.logger.info("Sending heartbeat...")
-
-            self?.sendPayload(.heartbeat(self?.heartbeatSequence))
-            
+        heartbeatDispatch = Task {
+            while (true) {
+                try await Task.sleep(for: .milliseconds(interval), tolerance: .milliseconds(10))
+                self.logger.info("Sending heartbeat...")
+                self.sendPayload(.heartbeat(self.heartbeatSequence))
+            }
         }
-        heartbeatDispatch?.resume()
-        
     }
 
     private func stopHeartbeat() {
