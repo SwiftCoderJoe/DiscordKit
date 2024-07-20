@@ -5,9 +5,12 @@ import NIOFoundationCompat
 import Logging
 
 class RESTClient {
-    let token: String
     let logger: Logger
     let client: Client
+
+    let token: String
+    var applicationID: Snowflake? = nil
+
     let httpClient = HTTPClient(eventLoopGroupProvider: .singleton)
 
     init(token: String, logger: Logger, client: Client) {
@@ -16,21 +19,19 @@ class RESTClient {
         self.client = client
     }
 
+    // MARK: API
+
     func sendMessage(withText content: String, to channel: TextChannel) {
         var request = post("channels/\(channel.id.string)/messages")
 
-        let str = """
+        request.body = .string("""
         {
             "content": \(content.jsonEncoded),
             "tts": false
         }
-        """
+        """)
 
-        request.body = .string(str)
-
-        logger.debug("\(str)")
-
-        execute(request: request)
+        execute(request)
     }
 
     func getMessage(from channelID: Snowflake, id messageID: Snowflake) async throws -> Message {
@@ -42,6 +43,35 @@ class RESTClient {
         let request = get("channels/\(channelID.string)/messages?limit=\(limit)")
         return try await getResult(of: request, as: [Message].self)
     }
+
+    // MARK: Application commands
+
+    func register(command: ApplicationCommand, in guild: Snowflake) async throws -> Snowflake {
+        var request = post("applications/\(applicationID!.string)/commands")
+        do {
+            request.body = .byteBuffer(try JSONEncoder().encodeAsByteBuffer(command, allocator: ByteBufferAllocator()))
+        } catch {
+            throw RESTError.couldNotEncodeError
+        }
+        return try await getResult(of: request, as: ApplicationCommandCreated.self).id
+    }
+
+    func replyToInteraction(id: Snowflake, token: String, saying content: String) {
+        var request = post("interactions/\(id.string)/\(token)/callback")
+
+        request.body = .string("""
+        {
+            "type": 4,
+            "data": {
+                "content": \(content.jsonEncoded)
+            }
+        }
+        """)
+
+        execute(request)
+    }
+
+    // MARK: Utilities
 
     private func get(_ endpoint: String) -> HTTPClient.Request {
         var request = try! HTTPClient.Request(url: "https://discord.com/api/v10/\(endpoint)", method: .GET)
@@ -55,7 +85,7 @@ class RESTClient {
         return request
     }
 
-    private func execute(request: HTTPClient.Request) {
+    private func execute(_ request: HTTPClient.Request) {
         httpClient.execute(request: request).whenComplete { result in
             switch result {
             case .failure(let error):
@@ -74,7 +104,7 @@ class RESTClient {
 
     private func getResult<T: Decodable>(of request: HTTPClient.Request, as type: T.Type) async throws -> T {
         let result = try await httpClient.execute(request: request).get()
-        guard result.status == .ok else { throw RESTError.responseNotOKError }
+        guard result.status == .ok || result.status == .noContent || result.status == .created else { throw RESTError.responseNotOKError }
         guard let body = result.body else { throw RESTError.emptyResponseError }
 
         let decoder = JSONDecoder()
@@ -93,5 +123,6 @@ class RESTClient {
     enum RESTError: Error {
         case responseNotOKError
         case emptyResponseError
+        case couldNotEncodeError
     }
 }

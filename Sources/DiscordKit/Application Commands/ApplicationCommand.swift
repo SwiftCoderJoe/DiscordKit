@@ -1,4 +1,4 @@
-struct ApplicationCommand {
+public struct ApplicationCommand {
     let name: String
     let description: String
     let type: ApplicationCommandType
@@ -16,7 +16,7 @@ extension ApplicationCommand: Encodable {
         case name, description, type, options
     }
 
-    func encode(to encoder: any Encoder) throws {
+    public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
         try container.encode(name, forKey: .name)

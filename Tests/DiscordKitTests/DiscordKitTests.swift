@@ -30,6 +30,15 @@ final class DiscordKitTests: XCTestCase {
 
         }
 
+        client.onReady {
+            try? await client.registerApplicationCommand(ApplicationCommand(name: "ping", description: "Ping pong!", type: .chat, options: []), in: Snowflake(542462471345274890)) {
+                interaction in
+                Task {
+                    try await interaction.reply(saying: "Pong!")
+                }
+            }
+        }
+
         try await client.login()
 
     }

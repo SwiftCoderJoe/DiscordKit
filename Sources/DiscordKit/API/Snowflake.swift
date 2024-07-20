@@ -1,4 +1,4 @@
-public struct Snowflake: Equatable {
+public struct Snowflake: Hashable, Equatable {
     init(_ int: Int) {
         self.int = int
         self.string = String(int)

@@ -5,6 +5,8 @@ import AsyncHTTPClient
 public class Client {
 
     private let token: String
+    private var applicationID: Snowflake? = nil
+    private var ready: Bool = false
 
     private var logger = Logger(label: "com.scj.DiscordKit")
 
@@ -42,10 +44,16 @@ public class Client {
 
     func handle(event: Event) {
         switch event {
-        case .ready(_):
+        case .ready(let data):
+            ready = true
+            applicationID = data.application.id
+            api.applicationID = data.application.id
             logger.info("Logged in!")
+            emitOnReady()
         case .message(let message):
             emitOnMessage(with: message)
+        case .interaction(let interactionEvent):
+            handleInteraction(interactionEvent)
         case .unknown(let name):
             logger.warning("Recieved an unknown event.", metadata: ["Event name": "\(name)"])
         }
@@ -70,12 +78,54 @@ public class Client {
         }
     }
 
+    var readyEventCallbacks: [() -> ()] = []
+    var readyEventAsyncCallbacks: [() async -> ()] = []
+    public func onReady(execute callback: @escaping () -> ()) {
+        readyEventCallbacks.append(callback)
+    }
+    public func onReady(exute asyncCallback: @escaping () async -> ()) {
+        readyEventAsyncCallbacks.append(asyncCallback)
+    }
+    private func emitOnReady() {
+        for callback in readyEventCallbacks {
+            callback()
+        }
+        for asyncCallback in readyEventAsyncCallbacks {
+            Task {
+                await asyncCallback()
+            }
+        }
+    }
+
     // MARK: Slash Commands
 
+    var applicationCommandCallbacks: [Snowflake: (Interaction) -> ()] = [:]
+
+    private func handleInteraction(_ interactionEvent: InteractionEvent) {
+        switch interactionEvent.type {
+            case .applicationCommand:
+                guard case let .applicationCommand(data) = interactionEvent.data else { fatalError() }
+                let interaction = Interaction(interactionID: interactionEvent.id, token: interactionEvent.token, api: api)
+                guard let callback = applicationCommandCallbacks[data.commandID] else { return } // Maybe something else?
+                callback(interaction)
+            default:
+                logger.debug("Ignoring unknown interaction event.")
+        }
+    }
+
     // TODO: We should eventually move this system to result builders, just like the *other* SwiftKit.
-    // public func registerApplicationCommand()
+    public func registerApplicationCommand(_ command: ApplicationCommand, in guild: Snowflake, callback: @escaping (Interaction) -> ()) async throws {
+        guard ready else { throw ClientError.applicationNotReadyError }
+
+        let id = try await api.register(command: command, in: guild)
+        applicationCommandCallbacks[id] = callback
+    }
 
     // MARK: Cleanup & Shutdown
 
     deinit { }
+
+    enum ClientError: Error {
+        case applicationNotReadyError
+    }
 }
