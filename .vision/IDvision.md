@@ -1,0 +1,7 @@
+# Vision for IDs, Snowflakes, and Abstraction in DiscordKit
+
+In DiscordKit, all IDs should be abstracted. There should be no reason to ever call `channel.id` or any other `.id`. The way we will do this is by creating custom `Identifiable` protocols. Consider `IdentifiableChannel`, and the protocols `IdentifiableTextChannel`, `IdentifiableVoiceChannel`, and `IdentifiableDMChannel` that could conform to it. The three conforming protocols would have no extra requirements, and would only be used to limit the scope of parameters to functions like `getMessage(in:id:)`, which could be spelled as `func get(message: IdentifiableMessage, in channel: IdentifiableChannel)`. This would allow both full objects *and* partial ID-only objects to be passed into relevant functions.
+
+## Specifics
+
+I imagine that full objects such as `TextChannel: IdentifiableTextChannel` would *only* be created by an explicit `get`, such as `guild.getChannel(...)` or `message.channel.fetch()` or something of the kind. Partial objects would be written as `MessageIdentifier: IdentifiableMessage`. This means that a `channel` property of a `Message` object would likely be described as a `ChannelIdentifier` and *not* as `some IdentifiableChannel` or something like that. This could get messy. For example, getting the guild that a message is sent to would require `message.channel.fetch().guild` and not `message.channel.guild`. This might be confusing for users, and it's something worth thinking about. 
