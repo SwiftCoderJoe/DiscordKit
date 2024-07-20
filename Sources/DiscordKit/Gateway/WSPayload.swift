@@ -89,12 +89,12 @@ extension WSPayload {
                 try container.encode(data, forKey: .data)
             case .heartbeatAck:
                 break
-            case .gatewayHello(let data):
-                try container.encode(data, forKey: .data)
+            case .gatewayHello:
+                break
             case .identify(let data):
                 try container.encode(data, forKey: .data)
-            case .event(let data, _):
-                try container.encode(data, forKey: .data)
+            case .event:
+                break
                 // TODO: Implement
         }
 

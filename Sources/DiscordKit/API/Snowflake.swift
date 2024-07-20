@@ -21,7 +21,8 @@ public struct Snowflake: Equatable {
 
 extension Snowflake: Codable {
     public func encode(to encoder: Encoder) throws {
-        fatalError("Errored while trying to encode a snowflake. this isnt implemented yet lmao")
+        // TODO: Should leverage Snowflake's `codable` conformance to reduce string interpolation with `snowflake.string`
+        fatalError("Errored while trying to encode a snowflake. This isn't implemented yet but should be soon.")
     }
 
     public init(from decoder: Decoder) throws {

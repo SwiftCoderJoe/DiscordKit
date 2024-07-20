@@ -10,16 +10,12 @@ public struct Message {
     var _tempChannelId: Snowflake
 }
 
-extension Message: Codable {
+extension Message: Decodable {
     enum CodingKeys: String, CodingKey {
         case content
         case id
         case author
         case channelId = "channel_id"
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        fatalError("Not implemented")
     }
 
     public init(from decoder: Decoder) throws {

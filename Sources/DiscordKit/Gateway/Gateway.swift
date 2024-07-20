@@ -67,7 +67,6 @@ class Gateway {
     private func createHeartbeat(every interval: Int) {
         heartbeatDispatch = Task {
             while (true) {
-                self.logger.info("Settings heartbeat task every \(interval) millis.")
                 try await Task.sleep(for: .milliseconds(interval), tolerance: .milliseconds(10))
                 self.logger.info("Sending heartbeat...")
                 self.sendPayload(.heartbeat(self.heartbeatSequence))

@@ -12,11 +12,7 @@ enum Event {
     }
 }
 
-extension Event: Codable {
-    func encode(to encoder: Encoder) throws {
-        fatalError("Encoding events not implemented. Should probably be decodable")
-    }
-
+extension Event: Decodable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: WSPayload.CodingKeys.self)
         let eventName = try container.decode(String.self, forKey: .eventName)

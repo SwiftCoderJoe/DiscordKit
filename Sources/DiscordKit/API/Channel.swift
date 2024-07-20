@@ -9,12 +9,21 @@ public protocol Channel: Codable {
 }
 
 public protocol TextChannel: Channel {
-    
+    // If we want to do caching ie. channel.messages.fetch() && channel.messages.cache
+    // var messages; MessageManager
 }
 
 extension TextChannel {
     public func send(_ content: String) {
         client.send(text: content, to: self)
+    }
+
+    public func getMessage(id: Snowflake) async throws -> Message {
+        return try await client.getMessage(in: self, id: id)
+    }
+
+    public func getMessages(limit: Int = 10) async throws -> [Message] {
+        return try await client.getMessages(in: self, limit: limit)
     }
 }
 
