@@ -1,14 +1,13 @@
 import XCTest
 @testable import DiscordKit
+import Logging
 
 final class DiscordKitTests: XCTestCase {
-    func testExample() throws {
-        
-        var client = Client(token: "NTQyNDYxOTI3NDk1MDQxMDM0.XFoFCQ.cDSVnYrBCt3Rb36CaEvQ_TL0HHY")
+    func testExample() async throws {
+        var client = Client(token: "NTQyNDYxOTI3NDk1MDQxMDM0.XFoFCQ.cDSVnYrBCt3Rb36CaEvQ_TL0HHY", logLevel: .debug)
+        var logger = Logger(label: "com.scj.Test")
 
-        client.on(.message) { data in
-            var message = data as! Message
-
+        client.onMessage { message in
             if message.author.bot ?? false {
                 return
             }
@@ -17,13 +16,30 @@ final class DiscordKitTests: XCTestCase {
                 message.channel.send( String(message.content.dropFirst(5)) )
             }
 
-            if message.content == "sing" {
-                message.channel.send("I'm singing!")
+            if message.content == "last10" {
+                var string = ""
+                do {
+                    for message in try await message.channel.getMessages(limit: 10) {
+                        string.append(message.content + "\n")
+                    }
+                    message.channel.send(string)
+                } catch {
+                    logger.error("\(error)")
+                }
             }
 
         }
 
-        client.login()
+        client.onReady {
+            try? await client.registerApplicationCommand(ApplicationCommand(name: "ping", description: "Ping pong!", type: .chat, options: []), in: Snowflake(542462471345274890)) {
+                interaction in
+                Task {
+                    try await interaction.reply(saying: "Pong!")
+                }
+            }
+        }
+
+        try await client.login()
 
     }
 }

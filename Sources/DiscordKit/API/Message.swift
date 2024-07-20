@@ -1,4 +1,4 @@
-struct Message {
+public struct Message {
     var content: String
 
     var id: Snowflake
@@ -10,20 +10,15 @@ struct Message {
     var _tempChannelId: Snowflake
 }
 
-extension Message: Codable {
+extension Message: Decodable {
     enum CodingKeys: String, CodingKey {
         case content
         case id
         case author
         case channelId = "channel_id"
-        
     }
 
-    func encode(to encoder: Encoder) throws {
-        fatalError("Not implemented")
-    }
-
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
         self.content = try container.decode(String.self, forKey: .content)

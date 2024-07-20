@@ -1,20 +1,29 @@
-protocol Channel: Codable {
+public protocol Channel: Codable {
 
     var client: Client { get }
 
     var id: Snowflake { get }
 
-    // var type: ChannelType { get }
+    var type: ChannelType { get }
 
 }
 
-protocol TextChannel: Channel {
-    
+public protocol TextChannel: Channel {
+    // If we want to do caching ie. channel.messages.fetch() && channel.messages.cache
+    // var messages; MessageManager
 }
 
 extension TextChannel {
-    func send(_ content: String) {
+    public func send(_ content: String) {
         client.send(text: content, to: self)
+    }
+
+    public func getMessage(id: Snowflake) async throws -> Message {
+        return try await client.getMessage(in: self, id: id)
+    }
+
+    public func getMessages(limit: Int = 10) async throws -> [Message] {
+        return try await client.getMessages(in: self, limit: limit)
     }
 }
 
@@ -22,9 +31,9 @@ struct DMChannel: TextChannel {
 
     var client: Client
 
-    var id: Snowflake
+    public var id: Snowflake
 
-    // var type: ChannelType
+    var type: ChannelType
 
     func encode(to encoder: Encoder) throws {
         fatalError("Not Implemented")
@@ -41,11 +50,11 @@ struct DMChannel: TextChannel {
         let container = try decoder.singleValueContainer()
 
         self.id = try container.decode(Snowflake.self)
-
+        self.type = .DMChannel
     }
 
 }
 
-enum ChannelType {
+public enum ChannelType {
     case DMChannel
 }

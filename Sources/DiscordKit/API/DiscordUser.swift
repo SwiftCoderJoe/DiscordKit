@@ -1,9 +1,9 @@
 struct DiscordUser {
 
     /** 
-    User's full ID snowflake, stored in an Int for now. 
+    User's full ID snowflake
     */
-    let id: Snowflake // Should be a snowflake?
+    let id: Snowflake
 
     /** 
     User's plaintext username, stored in a String. 
@@ -37,10 +37,10 @@ struct DiscordUser {
 
 extension DiscordUser: Codable {
     enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case username = "username"
-        case discriminator = "discriminator"
-        case bot = "bot"
-        case system = "system"
+        case id
+        case username
+        case discriminator
+        case bot
+        case system
     }
 }

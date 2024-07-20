@@ -1,9 +1,9 @@
 enum WSPayload: Codable {
-    case heartbeat(Int?)                      // opcode 1
+    case heartbeat(Int?)                     // opcode 1
     case heartbeatAck                        // opcode 11
     case gatewayHello(GatewayHelloData)      // opcode 10
-    case identify(IdentifyData)
-    case event(Event, Int)
+    case identify(IdentifyData)              // opcode 2
+    case event(Event, Int)                   // opcode 0
 
     struct GatewayHelloData: Codable {
         let heartbeat_interval: Int
@@ -56,10 +56,6 @@ extension WSPayload {
         case event = 0
     }
 
-    enum Events: String, Codable {
-        case ready = "READY"
-    }
-
     var opcode: Opcodes {
         switch self {
         case .heartbeat:
@@ -93,12 +89,12 @@ extension WSPayload {
                 try container.encode(data, forKey: .data)
             case .heartbeatAck:
                 break
-            case .gatewayHello(let data):
-                try container.encode(data, forKey: .data)
+            case .gatewayHello:
+                break
             case .identify(let data):
                 try container.encode(data, forKey: .data)
-            case .event(let data, _):
-                try container.encode(data, forKey: .data)
+            case .event:
+                break
                 // TODO: Implement
         }
 
@@ -127,28 +123,17 @@ extension WSPayload {
             let specificData = try container.decode(IdentifyData.self, forKey: .data)
             self = .identify(specificData)
         case .event:
-            // For an event, pass on the decoding to Event
-
-            let eventName = try container.decode(String.self, forKey: .eventName)
-            
-            // Pass on the event name to Event
-            if let eventNameContainer = decoder.userInfo[.contextManager] as? ContextManager {
-                print("Event Name: \(eventName)")
-                eventNameContainer.eventName = Event.Events(rawValue: eventName)
-            } else {
-                fatalError("Could not get eventNameContainer.")
-            }
-
-            let event = try container.decode(Event.self, forKey: .data)
-
+            // For an event, pass on the decoding to Event            
+            let event = try decoder.singleValueContainer().decode(Event.self)
             let sessionIdentifier = try container.decode(Int.self, forKey: .sessionID)
+
             self = .event(event, sessionIdentifier)
         }
     }
 }
 
 extension CodingUserInfoKey {
-    static let contextManager = CodingUserInfoKey(rawValue: "EventName")!
+    static let contextManager = CodingUserInfoKey(rawValue: "ContextManager")!
 }
 
 class ContextManager {
@@ -156,8 +141,6 @@ class ContextManager {
     init(client: Client) {
         self.client = client
     }
-
-    var eventName: Event.Events?
 
     var client: Client
 

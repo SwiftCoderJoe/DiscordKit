@@ -2,190 +2,130 @@ import Logging
 import Vapor
 import AsyncHTTPClient
 
-public class Client: Eventable {
+public class Client {
 
     private let token: String
-
-    private var eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 2)
-
-    private var connection: WebSocket?
-
-    private var heartbeatInterval: Int? {
-        didSet {
-            createHeartbeat(every: heartbeatInterval!)
-        }
-    }
-
-    private var heartbeatSequence: Int?
+    private var applicationID: Snowflake? = nil
+    private var ready: Bool = false
 
     private var logger = Logger(label: "com.scj.DiscordKit")
 
-    private var httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
+    private var api: RESTClient!
 
-    var heartbeatDispatch: DispatchSourceTimer?
+    // MARK: Instantiation
 
-    /// Event listener registry
-    var listeners = [SubscribableEvent: [(Any) -> ()]]()
-
-    public init(token: String) {
-
+    public init(token: String, logLevel: Logger.Level = .info) {
         self.token = token
-
+        logger.logLevel = logLevel
+        api = RESTClient(token: token, logger: logger, client: self)
     }
 
-    func login() {
-
-        let sema = DispatchSemaphore(value: 0) 
-
-        // First, connect to the WebSocket. Set it so any payload recieved gets sent to handle(payload: WSPayload)
-        let promise = WebSocket.connect(to: "wss://gateway.discord.gg/?v=9&encoding=json", on: eventLoopGroup) { ws in 
-            // Connected WebSocket.
-            
-            print("Connected.")
-
-            self.connection = ws
-
-            ws.onText({ ws, text in 
-
-                self.handle(payload: text)
-                
-            })
-            
-        }
-
-        // When we've connected, log in.
-        promise.whenComplete({ _ in
-
-            let properties = WSPayload.IdentifyData(token: self.token, intents: 4096)
-            
-            self.sendPayload(.identify(properties))
-
-            sema.signal()
-
-        })
-
-        sema.wait()
-
-        RunLoop.main.run()
+    func login() async throws {
+        try await Gateway(token: token, intents: 37379, logger: logger, client: self)
+        logger.critical("SHOULD NEVER PRINT! If this message is printed, something in the Swift language has gone seriously wrong.")
     }
 
-    private func handle(payload unidentifiedPayload: String) {
+    // MARK: Client functions
 
-        let decoder = JSONDecoder()
-
-        decoder.userInfo[.contextManager] = ContextManager(client: self)
-
-        guard let payload = try? decoder.decode(WSPayload.self, from: unidentifiedPayload.data(using: .utf8)!) else {
-            logger.error("Could not decode WebSocket payload.", metadata: ["Payload" : "\(unidentifiedPayload)"])
-            return
-        }
-
-        switch payload {
-            case .heartbeat:
-                logger.warning("Recieved a heartbeat request, which is not yet implemented.")
-            case .heartbeatAck:
-                logger.info("Heartbeat was recieved by server.")
-            case .gatewayHello(let data):
-                heartbeatInterval = data.heartbeat_interval
-            case .event(let event, let sequence):
-                heartbeatSequence = sequence
-                handle(event: event)
-                
-            default:
-                // No other payload should ever be recieved
-                print("Recieved an unknown payload, dumping:")
-                dump(payload)
-        }
-
+    public func send(text content: String, to channel: TextChannel) {
+        api.sendMessage(withText: content, to: channel)
     }
 
-    private func createHeartbeat(every interval: Int) {
-
-        let queue = DispatchQueue(label: "com.DiscordKit.client.heartbeatTimer")
-        heartbeatDispatch = DispatchSource.makeTimerSource(queue: queue)
-        // TODO: check if that leeway is small/large enough
-        heartbeatDispatch?.schedule(deadline: .now() + .milliseconds(interval), repeating: .milliseconds(interval), leeway: .milliseconds(10))
-        heartbeatDispatch?.setEventHandler { [weak self] in
-            self?.logger.info("Sending heartbeat...")
-
-            self?.sendPayload(.heartbeat(self?.heartbeatSequence))
-            
-        }
-        heartbeatDispatch?.resume()
-        
+    // TODO: make one requiring only Snowflake?
+    public func getMessage(in channel: TextChannel, id: Snowflake) async throws -> Message {
+        return try await api.getMessage(from: channel.id, id: id)
     }
 
-    private func sendPayload(_ payload: WSPayload) {
-        let encoder = JSONEncoder()
-
-        let data = String(data: try! encoder.encode( payload ), encoding: .utf8)
-
-        // print(data!)
-
-        let promise = self.eventLoopGroup.next().makePromise(of: Void.self)
-        self.connection!.send(data!, promise: promise)
-        promise.futureResult.whenComplete { result in
-            switch result {
-            case .success():
-                //print("Send success.")
-                break
-            case .failure(let error):
-                print(error)
-            }
-        }
+    public func getMessages(in channel: TextChannel, limit: Int = 10) async throws -> [Message] {
+        return try await api.getMessages(from: channel.id, limit: limit)
     }
+    
+    // MARK: Events
 
-    /** please move all WS code to Gateway */
-    private func handle(event: Event) {
+    func handle(event: Event) {
         switch event {
-        case .ready(_):
+        case .ready(let data):
+            ready = true
+            applicationID = data.application.id
+            api.applicationID = data.application.id
             logger.info("Logged in!")
-        case .message(_):
-            emit(event)
-        case .unknown(let decoder):
-            dump(decoder)
-            logger.warning("Recieved an unknown event.")
+            emitOnReady()
+        case .message(let message):
+            emitOnMessage(with: message)
+        case .interaction(let interactionEvent):
+            handleInteraction(interactionEvent)
+        case .unknown(let name):
+            logger.warning("Recieved an unknown event.", metadata: ["Event name": "\(name)"])
         }
     }
 
-    private func stopHeartbeat() {
-        heartbeatDispatch?.cancel()
-        heartbeatDispatch = nil
+    var messageEventCallbacks: [(Message) -> ()] = []
+    var messageEventAsyncCallbacks: [(Message) async -> ()] = []
+    public func onMessage(execute callback: @escaping (Message) -> ()) {
+        messageEventCallbacks.append(callback)
     }
-
-    func send(text content: String, to channel: TextChannel) {
-        var request = try! HTTPClient.Request(url: "https://discord.com/api/channels/\(channel.id.string)/messages", method: .POST)
-
-        request.headers.add(name: "User-Agent", value: "DiscordBot (https://github.com/SwiftCoderJoe/DiscordKit/, 1.0.0")
-        request.headers.add(name: "Authorization", value: "Bot \(token)")
-        request.headers.contentType = .json
-
-        request.body = .string("""
-        {
-            "content": "\(content)",
-            "tts": false
+    public func onMessage(exute asyncCallback: @escaping (Message) async -> ()) {
+        messageEventAsyncCallbacks.append(asyncCallback)
+    }
+    private func emitOnMessage(with message: Message) {
+        for callback in messageEventCallbacks {
+            callback(message)
         }
-        """)
-
-        httpClient.execute(request: request).whenComplete { result in
-            switch result {
-            case .failure(let error):
-                self.logger.critical("\(error)")
-            case .success(let response):
-                if response.status == .ok {
-                    self.logger.info("Sent message successfully.")
-                } else {
-                    self.logger.critical("Something went wrong!")
-                    dump(response)
-                    print(response.body)
-                }
+        for asyncCallback in messageEventAsyncCallbacks {
+            Task {
+                await asyncCallback(message)
             }
         }
-
     }
 
-    deinit {
-        self.stopHeartbeat()
+    var readyEventCallbacks: [() -> ()] = []
+    var readyEventAsyncCallbacks: [() async -> ()] = []
+    public func onReady(execute callback: @escaping () -> ()) {
+        readyEventCallbacks.append(callback)
+    }
+    public func onReady(exute asyncCallback: @escaping () async -> ()) {
+        readyEventAsyncCallbacks.append(asyncCallback)
+    }
+    private func emitOnReady() {
+        for callback in readyEventCallbacks {
+            callback()
+        }
+        for asyncCallback in readyEventAsyncCallbacks {
+            Task {
+                await asyncCallback()
+            }
+        }
     }
 
+    // MARK: Slash Commands
+
+    var applicationCommandCallbacks: [Snowflake: (Interaction) -> ()] = [:]
+
+    private func handleInteraction(_ interactionEvent: InteractionEvent) {
+        switch interactionEvent.type {
+            case .applicationCommand:
+                guard case let .applicationCommand(data) = interactionEvent.data else { fatalError() }
+                let interaction = Interaction(interactionID: interactionEvent.id, token: interactionEvent.token, api: api)
+                guard let callback = applicationCommandCallbacks[data.commandID] else { return } // Maybe something else?
+                callback(interaction)
+            default:
+                logger.debug("Ignoring unknown interaction event.")
+        }
+    }
+
+    // TODO: We should eventually move this system to result builders, just like the *other* SwiftKit.
+    public func registerApplicationCommand(_ command: ApplicationCommand, in guild: Snowflake, callback: @escaping (Interaction) -> ()) async throws {
+        guard ready else { throw ClientError.applicationNotReadyError }
+
+        let id = try await api.register(command: command, in: guild)
+        applicationCommandCallbacks[id] = callback
+    }
+
+    // MARK: Cleanup & Shutdown
+
+    deinit { }
+
+    enum ClientError: Error {
+        case applicationNotReadyError
+    }
 }
