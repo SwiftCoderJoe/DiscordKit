@@ -5,7 +5,8 @@ import Logging
 final class DiscordKitTests: XCTestCase {
     func testExample() async throws {
         let logger = Logger(label: "com.scj.Test")
-        let client = Client(token: "NTQyNDYxOTI3NDk1MDQxMDM0.XFoFCQ.cDSVnYrBCt3Rb36CaEvQ_TL0HHY", logLevel: .debug)
+        let intents: Intents = [.guilds, .guildMembers, .messages, .directMessages, .messageContent]
+        let client = Client(token: "NTQyNDYxOTI3NDk1MDQxMDM0.XFoFCQ.cDSVnYrBCt3Rb36CaEvQ_TL0HHY", intents: intents, logLevel: .debug)
 
         client.onMessage { message in
             if message.author.bot ?? false {
@@ -34,7 +35,11 @@ final class DiscordKitTests: XCTestCase {
             try? await client.registerApplicationCommand(ApplicationCommand(name: "ping", description: "Ping pong!", type: .chat, options: []), in: Snowflake(542462471345274890)) {
                 interaction in
                 Task {
-                    try await interaction.reply(saying: "Pong!")
+                    var string = ""
+                    for message in try await client.getMessages(in: interaction.channel) {
+                        string.append(message.content + "\n")
+                    }
+                    try await interaction.reply(saying: string)
                 }
             }
         }

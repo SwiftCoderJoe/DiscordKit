@@ -9,16 +9,16 @@ enum WSPayload: Codable {
         let heartbeat_interval: Int
     }
 
-    struct IdentifyData: Codable {
+    struct IdentifyData: Encodable {
 
-        init(token: String, intents: Int) {
+        init(token: String, intents: Intents) {
             self.token = token
             self.intents = intents
             self.properties = IdentifyProperties()
         }
 
         let token: String
-        let intents: Int
+        let intents: Intents
         let properties: IdentifyProperties
 
         struct IdentifyProperties: Codable {
@@ -120,8 +120,8 @@ extension WSPayload {
             let specificData = try container.decode(GatewayHelloData.self, forKey: .data)
             self = .gatewayHello(specificData)
         case .identify:
-            let specificData = try container.decode(IdentifyData.self, forKey: .data)
-            self = .identify(specificData)
+            // We only send identify messages, not recieve them.
+            fatalError("Discord sent an identify message, which is unsupported.")
         case .event:
             // For an event, pass on the decoding to Event            
             let event = try decoder.singleValueContainer().decode(Event.self)

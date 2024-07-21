@@ -8,35 +8,38 @@ public class Client {
     private var applicationID: Snowflake? = nil
     private var ready: Bool = false
 
+    private let intents: Intents
+
     private var logger = Logger(label: "com.scj.DiscordKit")
 
     private var api: RESTClient!
 
     // MARK: Instantiation
 
-    public init(token: String, logLevel: Logger.Level = .info) {
+    public init(token: String, intents: Intents = .unprivileged, logLevel: Logger.Level = .info) {
         self.token = token
+        self.intents = intents
         logger.logLevel = logLevel
         api = RESTClient(token: token, logger: logger, client: self)
     }
 
     func login() async throws {
-        try await Gateway(token: token, intents: 37379, logger: logger, client: self)
+        try await Gateway(token: token, intents: intents, logger: logger, client: self)
         logger.critical("SHOULD NEVER PRINT! If this message is printed, something in the Swift language has gone seriously wrong.")
     }
 
     // MARK: Client functions
 
-    public func send(text content: String, to channel: TextChannel) {
+    public func send(text content: String, to channel: any IdentifiableTextChannel) {
         api.sendMessage(withText: content, to: channel)
     }
 
     // TODO: make one requiring only Snowflake?
-    public func getMessage(in channel: TextChannel, id: Snowflake) async throws -> Message {
+    public func getMessage(in channel: any IdentifiableTextChannel, id: Snowflake) async throws -> Message {
         return try await api.getMessage(from: channel.id, id: id)
     }
 
-    public func getMessages(in channel: TextChannel, limit: Int = 10) async throws -> [Message] {
+    public func getMessages(in channel: any IdentifiableTextChannel, limit: Int = 10) async throws -> [Message] {
         return try await api.getMessages(from: channel.id, limit: limit)
     }
     
@@ -105,7 +108,7 @@ public class Client {
         switch interactionEvent.type {
             case .applicationCommand:
                 guard case let .applicationCommand(data) = interactionEvent.data else { fatalError() }
-                let interaction = Interaction(interactionID: interactionEvent.id, token: interactionEvent.token, api: api)
+                let interaction = Interaction(interactionID: interactionEvent.id, token: interactionEvent.token, guildID: interactionEvent.guildID, channel: interactionEvent.channel, client: self, api: api)
                 guard let callback = applicationCommandCallbacks[data.commandID] else { return } // Maybe something else?
                 callback(interaction)
             default:
