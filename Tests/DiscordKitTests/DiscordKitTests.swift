@@ -4,8 +4,8 @@ import Logging
 
 final class DiscordKitTests: XCTestCase {
     func testExample() async throws {
-        var client = Client(token: "NTQyNDYxOTI3NDk1MDQxMDM0.XFoFCQ.cDSVnYrBCt3Rb36CaEvQ_TL0HHY", logLevel: .debug)
-        var logger = Logger(label: "com.scj.Test")
+        let logger = Logger(label: "com.scj.Test")
+        let client = Client(token: "NTQyNDYxOTI3NDk1MDQxMDM0.XFoFCQ.cDSVnYrBCt3Rb36CaEvQ_TL0HHY", logLevel: .debug)
 
         client.onMessage { message in
             if message.author.bot ?? false {
