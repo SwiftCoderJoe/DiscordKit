@@ -21,7 +21,7 @@ class RESTClient {
 
     // MARK: API
 
-    func sendMessage(withText content: String, to channel: TextChannel) {
+    func sendMessage(withText content: String, to channel: any IdentifiableTextChannel) {
         var request = post("channels/\(channel.id.string)/messages")
 
         request.body = .string("""

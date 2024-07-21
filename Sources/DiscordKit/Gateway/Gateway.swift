@@ -14,7 +14,7 @@ class Gateway {
     }
 
     @discardableResult
-    init(token: String, intents: Int, logger: Logger, client: Client) async throws {
+    init(token: String, intents: Intents, logger: Logger, client: Client) async throws {
         self.client = client
         self.logger = logger
 

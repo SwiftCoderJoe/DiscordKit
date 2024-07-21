@@ -2,10 +2,18 @@ public struct Interaction {
     private let interactionID: Snowflake
     private let token: String
     private let api: RESTClient
+    private let client: Client
 
-    init(interactionID: Snowflake, token: String, api: RESTClient) {
+    public let channel: any IdentifiableTextChannel
+    public let guildID: Snowflake?
+
+    // TODO: Could add a ref to the user / guildmember here
+    init(interactionID: Snowflake, token: String, guildID: Snowflake?, channel: any IdentifiableTextChannel, client: Client, api: RESTClient) {
         self.interactionID = interactionID
         self.token = token
+        self.channel = channel
+        self.guildID = guildID
+        self.client = client
         self.api = api
     }
 

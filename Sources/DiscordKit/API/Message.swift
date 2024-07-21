@@ -3,7 +3,7 @@ public struct Message {
 
     var id: Snowflake
 
-    var channel: TextChannel
+    var channel: any IdentifiableTextChannel
 
     var author: DiscordUser
 
@@ -26,6 +26,6 @@ extension Message: Decodable {
         self.author = try container.decode(DiscordUser.self, forKey: .author)
         self._tempChannelId = try container.decode(Snowflake.self, forKey: .channelId)
 
-        self.channel = try container.decode(DMChannel.self, forKey: .channelId)
+        self.channel = try container.decode(TextChannelIdentifier.self, forKey: .channelId)
     }
 }
