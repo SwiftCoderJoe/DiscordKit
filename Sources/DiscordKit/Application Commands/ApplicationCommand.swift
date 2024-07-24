@@ -4,7 +4,14 @@ public struct ApplicationCommand {
     let type: ApplicationCommandType
     let options: [any CommandOption]
 
-    enum ApplicationCommandType: Int, Codable {
+    public init(name: String, description: String, type: ApplicationCommandType, options: [any CommandOption] = []) {
+        self.name = name
+        self.description = description
+        self.type = type
+        self.options = options
+    }
+
+    public enum ApplicationCommandType: Int, Codable {
         case chat = 1
         case user = 2
         case message = 3
