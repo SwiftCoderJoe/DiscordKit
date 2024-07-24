@@ -1,11 +1,11 @@
 public struct Message {
-    var content: String
+    public var content: String
 
     var id: Snowflake
 
-    var channel: any IdentifiableTextChannel
+    public var channel: any IdentifiableTextChannel
 
-    var author: DiscordUser
+    public var author: DiscordUser
 
     var _tempChannelId: Snowflake
 }
