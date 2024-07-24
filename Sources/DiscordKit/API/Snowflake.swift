@@ -4,7 +4,7 @@ public struct Snowflake: Hashable, Equatable {
         self.string = String(int)
     }
 
-    init(_ string: String) throws {
+    public init(_ string: String) throws {
         guard let int = Int(string) else { 
             fatalError()
         }
