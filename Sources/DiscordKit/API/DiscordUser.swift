@@ -1,4 +1,4 @@
-struct DiscordUser {
+public struct DiscordUser: Hashable {
 
     /** 
     User's full ID snowflake
@@ -8,12 +8,12 @@ struct DiscordUser {
     /** 
     User's plaintext username, stored in a String. 
     */
-    let username: String
+    public let username: String
 
     /** 
     The Discord Tag of the user, stored in a String for now. 
     */
-    let discriminator: String // should be an int?
+    public let discriminator: String // should be an int?
 
     /** 
     NOT YET IMPLEMENTED 
@@ -25,14 +25,14 @@ struct DiscordUser {
     
     Not sure why it's an optional
     */
-    let bot: Bool?
+    public let bot: Bool?
 
     /** 
     Shows if the user is an official Discord System User 
 
     Currently shows up as nil, this should probably be decoded as false.
     */
-    let system: Bool?
+    public let system: Bool?
 }
 
 extension DiscordUser: Codable {
