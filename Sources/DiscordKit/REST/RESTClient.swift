@@ -91,7 +91,7 @@ class RESTClient {
             case .failure(let error):
                 self.logger.critical("\(error)")
             case .success(let response):
-                if response.status == .ok {
+                if response.status == .ok || response.status == .noContent {
                     self.logger.info("REST request performed successfully.")
                 } else {
                     self.logger.critical("A REST request had an error. Dumping the request and the response.", metadata: ["request": "\(request)", "response": "\(response)"])
@@ -104,7 +104,7 @@ class RESTClient {
 
     private func getResult<T: Decodable>(of request: HTTPClient.Request, as type: T.Type) async throws -> T {
         let result = try await httpClient.execute(request: request).get()
-        guard result.status == .ok || result.status == .noContent || result.status == .created else { throw RESTError.responseNotOKError }
+        guard result.status == .ok || result.status == .created else { throw RESTError.responseNotOKError }
         guard let body = result.body else { throw RESTError.emptyResponseError }
 
         let decoder = JSONDecoder()
