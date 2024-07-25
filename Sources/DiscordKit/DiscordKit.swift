@@ -23,7 +23,11 @@ public class Client {
         api = RESTClient(token: token, logger: logger, client: self)
     }
 
-    func login() async throws {
+    /// Log into Discord.
+    /// 
+    /// When the bot logs in and is ready for new commands, the `ready` event will be emitted. This can be 
+    /// listened for using ``Client/onReady(execute:)``
+    public func login() async throws {
         try await Gateway(token: token, intents: intents, logger: logger, client: self)
         logger.critical("SHOULD NEVER PRINT! If this message is printed, something in the Swift language has gone seriously wrong.")
     }
