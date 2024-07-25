@@ -40,6 +40,8 @@ class Gateway {
 
         decoder.userInfo[.contextManager] = ContextManager(client: client)
 
+        logger.trace("\(unidentifiedPayload)")
+
         guard let payload = try? decoder.decode(WSPayload.self, from: unidentifiedPayload.data(using: .utf8)!) else {
             logger.error("Could not decode WebSocket payload.", metadata: ["Payload" : "\(unidentifiedPayload)"])
             return
@@ -69,6 +71,12 @@ class Gateway {
             while (true) {
                 try await Task.sleep(for: .milliseconds(interval), tolerance: .milliseconds(10))
                 self.logger.info("Sending heartbeat...")
+                if connection?.isClosed ?? false {
+                    self.logger.critical("CONN CLOSED!")
+                    let err = connection?.closeCode
+                    self.logger.critical("\(err!)")
+                    fatalError("The Gateway connection was closed for the reason shown above.")
+                }
                 self.sendPayload(.heartbeat(self.heartbeatSequence))
             }
         }
@@ -83,6 +91,7 @@ class Gateway {
         let encoder = JSONEncoder()
 
         let data = String(data: try! encoder.encode( payload ), encoding: .utf8)
+        logger.trace("\(data!)")
 
         // For Gateway, since we don't use any of its return values, we really don't care when tasks finish execution.
         // No need to `await` anything.
