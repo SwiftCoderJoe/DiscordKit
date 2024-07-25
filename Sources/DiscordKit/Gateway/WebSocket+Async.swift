@@ -5,7 +5,7 @@ extension WebSocket {
     static func connect(
         to url: String,
         headers: HTTPHeaders = [:],
-        configuration: WebSocketClient.Configuration = .init(),
+        configuration: WebSocketClient.Configuration = .init(maxFrameSize: 1 << 16),
         on eventLoopGroup: any EventLoopGroup = MultiThreadedEventLoopGroup.singleton,
         logger: Logger
     ) async -> (WebSocket, AsyncStream<String>) {
